@@ -77,7 +77,7 @@ public:
 	void kick(std::chrono::milliseconds timeout, bool loop = false)
 	{
 		stop();
-		thread = std::thread(std::bind(&WatchdogTimer::forever, this, timeout, loop));
+		thread = std::thread(std::bind(&BaseWatchdogTimer<Clock>::forever, this, timeout, loop));
 	}
 
 	void clear()
