@@ -99,12 +99,12 @@ public:
 	}
 };
 
+
 typedef std::chrono::high_resolution_clock HighResolutionClock;
 typedef std::chrono::system_clock SystemClock;
 typedef HighResolutionClock DefaultClock;
 
-
-typedef BaseWatchdogTimer<DefaultClock> WatchdogTimer;
 typedef BaseWatchdogTimer<HighResolutionClock> HighResolutionWatchdogTimer;
 typedef BaseWatchdogTimer<SystemClock> SystemClockWatchdogTimer;
+typedef BaseWatchdogTimer<DefaultClock> WatchdogTimer;
 #endif
