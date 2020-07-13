@@ -1,6 +1,6 @@
 #pragma once
-#ifndef WATCHDOGTIMER_H
-#define WATCHDOGTIMER_H
+#ifndef WATCHDOGTIMER_CLASS_H
+#define WATCHDOGTIMER_CLASS_H
 #include <chrono>
 #include <thread>
 #include <atomic>
@@ -16,9 +16,11 @@ private:
 
 private:
 	std::mutex mutex;
-	std::condition_variable sleep_condition;
-	std::atomic_bool exit_flag;
-	std::thread thread;
+	std::condition_variable loop_condition;
+	std::atomic_bool loop_flag;
+	std::thread loop_thread;
+
+private:
 	typename Clock::time_point clock_counter;
 
 private:
@@ -37,24 +39,27 @@ private:
 			do
 			{
 				// 'std::condition_variable::wait_for' may return no_timeout although time exceeds timeout
-				// So, must use another variable like 'exit_flag'
-				if (this->sleep_condition.wait_for(lock, timeout, [=]() {return this->exit_flag.load(); }))
+				// So, must use another variable like 'loop_flag'
+				if (this->loop_condition.wait_for(lock, timeout, [=]() {return !this->loop_flag.load(); }))
 				{
-					if (this->exit_flag.load())
+					if (!this->loop_flag)
 						goto out;
 				}
 			} while (std::chrono::duration_cast<Millseconds>((Clock::now() - this->clock_counter)) < timeout);
-			this->timeout();
+			this->on_timeout();
 		} while (loop);
 
 	out:
 		return;
 	}
 
-private:
-	virtual void timeout()
-	{
+public:
+	std::function<void(void)> on_timeout_callback;
 
+	virtual void on_timeout()
+	{
+		if (on_timeout_callback)
+			on_timeout_callback();
 	}
 
 public:
@@ -77,7 +82,9 @@ public:
 	void kick(std::chrono::milliseconds timeout, bool loop = false)
 	{
 		stop();
-		thread = std::thread(std::bind(&BaseWatchdogTimer<Clock>::forever, this, timeout, loop));
+
+		loop_flag = true;
+		loop_thread = std::thread(std::bind(&BaseWatchdogTimer<Clock>::forever, this, timeout, loop));
 	}
 
 	void clear()
@@ -87,15 +94,11 @@ public:
 
 	void stop()
 	{
-		exit_flag.store(true);
-		sleep_condition.notify_all();
+		loop_flag = false;
+		loop_condition.notify_all();
 
-		if (thread.joinable())
-		{
-			thread.join();
-		}
-
-		exit_flag.store(false);
+		if (loop_thread.joinable())
+			loop_thread.join();
 	}
 };
 
