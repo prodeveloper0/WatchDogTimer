@@ -11,9 +11,9 @@
 template<typename Clock>
 class BaseWatchdogTimer
 {
-private:
-	typedef std::chrono::milliseconds Millseconds;
-
+public:
+	typedef std::chrono::milliseconds Milliseconds;
+	
 private:
 	std::mutex mutex;
 	std::condition_variable loop_condition;
@@ -30,7 +30,7 @@ private:
 	BaseWatchdogTimer<Clock>& operator=(BaseWatchdogTimer<Clock>&&) = delete;
 
 private:
-	void forever(Millseconds timeout, bool loop)
+	void forever(Milliseconds timeout, bool loop)
 	{
 		std::unique_lock<std::mutex> lock(this->mutex);
 
@@ -45,7 +45,7 @@ private:
 					if (!this->loop_flag)
 						goto out;
 				}
-			} while (std::chrono::duration_cast<Millseconds>((Clock::now() - this->clock_counter)) < timeout);
+			} while (std::chrono::duration_cast<Milliseconds>((Clock::now() - this->clock_counter)) < timeout);
 			this->on_timeout();
 		} while (loop);
 
@@ -56,6 +56,7 @@ private:
 public:
 	std::function<void(void)> on_timeout_callback;
 
+private:
 	virtual void on_timeout()
 	{
 		if (on_timeout_callback)
@@ -74,12 +75,12 @@ public:
 	}
 
 public:
-	void kick(unsigned int timeout_milliseconds, bool loop = false)
+	void kick(unsigned int timeout_ms, bool loop = false)
 	{
-		kick(Millseconds(timeout_milliseconds), loop);
+		kick(Milliseconds(timeout_ms), loop);
 	}
 
-	void kick(std::chrono::milliseconds timeout, bool loop = false)
+	void kick(Milliseconds timeout, bool loop = false)
 	{
 		stop();
 
@@ -97,7 +98,7 @@ public:
 		loop_flag = false;
 		loop_condition.notify_all();
 
-		if (loop_thread.joinable())
+		if (loop_thread.joinable() && loop_thread.get_id() != std::this_thread::get_id())
 			loop_thread.join();
 	}
 };
